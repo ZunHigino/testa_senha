@@ -119,7 +119,9 @@ def main():
             for i in range(4):
                 time.sleep(0.5)
                 print('.' * i)
+            time.sleep(0.5)
             print('Sistema encerrado.')
+            quebralinha()
             break
         else:
             print()
