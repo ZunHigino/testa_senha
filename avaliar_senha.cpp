@@ -5,6 +5,7 @@
 #include <cctype>
 #include <algorithm>
 #include <random>
+#include <sstream>
 
 #include "avaliar_senha.h"
 
@@ -82,7 +83,8 @@ string classificarSenha(int pontos) {
     }
 }
 
-int avaliarSenha(const string& senha) {
+int avaliarSenha(const string& senha, bool exibir) {
+    ostringstream saida;
     int pontos = 0;
 
     bool temLetra = false;
@@ -113,13 +115,13 @@ int avaliarSenha(const string& senha) {
     // 1. Comprimento.
     if (senha.size() >= 12) {
         pontos += 2;
-        cout << "+2: senha com 12 ou mais caracteres.\n";
+        saida << "+2: senha com 12 ou mais caracteres.\n";
     } else if (senha.size() > 8) {
         pontos += 1;
-        cout << "+1: senha com mais de 8 caracteres.\n";
+        saida << "+1: senha com mais de 8 caracteres.\n";
     } else {
         pontos -= 1;
-        cout << "-1: senha com 8 caracteres ou menos.\n";
+        saida << "-1: senha com 8 caracteres ou menos.\n";
     }
 
     // 2. Variedade de categorias.
@@ -129,12 +131,12 @@ int avaliarSenha(const string& senha) {
 
     if (categorias == 3) {
         pontos += 2;
-        cout << "+2: possui letras, numeros e simbolos.\n";
+        saida << "+2: possui letras, numeros e simbolos.\n";
     } else if (categorias == 2) {
         pontos += 1;
-        cout << "+1: combina duas categorias.\n";
+        saida << "+1: combina duas categorias.\n";
     } else {
-        cout << "+0: utiliza apenas uma categoria.\n";
+        saida << "+0: utiliza apenas uma categoria.\n";
     }
 
     // 3. Caracteres unicos: bonus se nenhum caractere se repetir.
@@ -142,7 +144,7 @@ int avaliarSenha(const string& senha) {
 
     if (caracteresUnicos.size() == senha.size()) {
         pontos += 1;
-        cout << "+1: nao possui caracteres repetidos.\n";
+        saida << "+1: nao possui caracteres repetidos.\n";
     }
 
     // Penalidade quando qualquer caractere aparece 3 ou mais
@@ -164,158 +166,138 @@ int avaliarSenha(const string& senha) {
 
     if (repeticaoConsecutiva) {
         pontos -= 1;
-        cout << "-1: possui caracteres repetidos tres ou mais vezes seguidas.\n";
+        saida << "-1: possui caracteres repetidos tres ou mais vezes seguidas.\n";
     }
 
     // 4. Letras maiusculas e minusculas.
     if (temMaiuscula && temMinuscula) {
         pontos += 1;
-        cout << "+1: combina letras maiusculas e minusculas.\n";
+        saida << "+1: combina letras maiusculas e minusculas.\n";
     } else {
-        cout << "+0: nao combina letras maiusculas e minusculas.\n";
+        saida << "+0: nao combina letras maiusculas e minusculas.\n";
     }
 
     // 5. Sequencias de digitos iguais.
     // Mantido como criterio independente do projeto original.
     if (numerosRepetidos(senha)) {
         pontos -= 1;
-        cout << "-1: possui uma sequencia de numeros repetidos.\n";
+        saida << "-1: possui uma sequencia de numeros repetidos.\n";
     }
 
     // 6. Possiveis datas pessoais.
     if (dataProvavel(senha)) {
         pontos -= 1;
-        cout << "-1: possui uma sequencia numerica que pode ser uma data.\n";
+        saida << "-1: possui uma sequencia numerica que pode ser uma data.\n";
     }
 
     // 7. Nomes e palavras comuns.
     if (nomeOuPalavraComum(senha)) {
         pontos -= 1;
-        cout << "-1: contem um nome ou uma palavra comum da lista.\n";
+        saida << "-1: contem um nome ou uma palavra comum da lista.\n";
     }
 
     pontos = max(0, min(5, pontos));
 
-    cout << "\nPontuacao final: " << pontos << "/5\n";
-    cout << "Classificacao: " << classificarSenha(pontos) << "\n";
+    saida << "\nPontuacao final: " << pontos << "/5\n";
+    saida << "Classificacao: " << classificarSenha(pontos) << "\n";
 
+    if (exibir) cout << saida.str();
     return pontos;
 }
 
-// Gera uma senha aleatoria para a demonstracao academica.
-// Observacao: mt19937 nao e um gerador criptografico.
-static string gerarSenhaAleatoria() {
+// A geracao utiliza mt19937 apenas para demonstracao academica.
+// Nao use as sugestoes como credenciais reais sem um gerador seguro.
+static string gerarCandidata(const string& original, bool preservar,
+                            const Configuracao& config, mt19937& gerador) {
     const string minusculas = "abcdefghijklmnopqrstuvwxyz";
     const string maiusculas = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
     const string numeros = "0123456789";
     const string simbolos = "!@#$%&*?-_+";
-    const string todos = minusculas + maiusculas + numeros + simbolos;
-
-    random_device rd;
-    mt19937 gerador(rd());
-
-    auto sortear = [&](const string& grupo) -> char {
-        uniform_int_distribution<size_t> distribuicao(0, grupo.size() - 1);
-        return grupo[distribuicao(gerador)];
+    const bool permitirLetras = config.categorias != Categorias::Numeros;
+    const bool permitirNumeros = config.categorias != Categorias::LetrasSimbolos;
+    const bool permitirSimbolos = config.categorias != Categorias::Numeros;
+    string disponiveis = (permitirLetras ? minusculas + maiusculas : "") +
+                        (permitirNumeros ? numeros : "") +
+                        (permitirSimbolos ? simbolos : "");
+    string resultado;
+    auto adicionarSePossivel = [&](char c) {
+        if (resultado.size() < config.tamanho &&
+            disponiveis.find(c) != string::npos &&
+            resultado.find(c) == string::npos) {
+            resultado.push_back(c);
+        }
     };
 
-    string senha;
-    senha += sortear(minusculas);
-    senha += sortear(maiusculas);
-    senha += sortear(numeros);
-    senha += sortear(simbolos);
+    // Preserva a ordem e os caracteres permitidos da senha original,
+    // quando a classificacao for moderada ou forte.
+    if (preservar) {
+        for (char c : original) adicionarSePossivel(c);
+    }
 
-    string restantes;
-    for (char c : todos) {
-        if (senha.find(c) == string::npos) {
-            restantes += c;
+    auto incluirCategoria = [&](const string& grupo) {
+        bool presente = false;
+        for (char c : resultado) {
+            if (grupo.find(c) != string::npos) { presente = true; break; }
         }
-    }
-
-    shuffle(restantes.begin(), restantes.end(), gerador);
-    while (senha.size() < 16 && !restantes.empty()) {
-        senha += restantes.back();
-        restantes.pop_back();
-    }
-
-    shuffle(senha.begin(), senha.end(), gerador);
-    return senha;
-}
-
-string sugerirSenha(const string& senha, int pontuacao) {
-    // Para senhas fracas, recomenda uma senha nova.
-    if (pontuacao <= 1) {
-        return gerarSenhaAleatoria();
-    }
-
-    // Se ja for poderosa, mantem a senha.
-    if (pontuacao >= 5) {
-        return senha;
-    }
-
-    // Para moderada ou forte, tenta preservar os caracteres originais,
-    // retirando repeticoes para poder obter o bonus de caracteres unicos.
-    string novaSenha;
-    set<char> utilizados;
-
-    for (char c : senha) {
-        if (utilizados.insert(c).second) {
-            novaSenha += c;
-        }
-    }
-
-    const string minusculas = "abcdefghijklmnopqrstuvwxyz";
-    const string maiusculas = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-    const string numeros = "0123456789";
-    const string simbolos = "!@#$%&*?-_+";
-
-    auto adicionarUm = [&](const string& grupo) {
-        for (char c : grupo) {
-            if (utilizados.insert(c).second) {
-                novaSenha += c;
-                return;
+        if (!presente) {
+            // Libera uma posicao para a categoria ausente, se necessario.
+            if (resultado.size() >= config.tamanho && !resultado.empty()) {
+                resultado.pop_back();
+            }
+            string escolhas = grupo;
+            shuffle(escolhas.begin(), escolhas.end(), gerador);
+            for (char c : escolhas) {
+                if (resultado.find(c) == string::npos) {
+                    adicionarSePossivel(c);
+                    break;
+                }
             }
         }
     };
-
-    bool temMinuscula = false;
-    bool temMaiuscula = false;
-    bool temNumero = false;
-    bool temSimbolo = false;
-
-    for (unsigned char c : novaSenha) {
-        if (islower(c)) temMinuscula = true;
-        if (isupper(c)) temMaiuscula = true;
-        if (isdigit(c)) temNumero = true;
-        if (!isalnum(c)) temSimbolo = true;
+    if (permitirLetras) {
+        incluirCategoria(minusculas);
+        incluirCategoria(maiusculas);
     }
+    if (permitirNumeros) incluirCategoria(numeros);
+    if (permitirSimbolos) incluirCategoria(simbolos);
 
-    if (!temMinuscula) adicionarUm(minusculas);
-    if (!temMaiuscula) adicionarUm(maiusculas);
-    if (!temNumero) adicionarUm(numeros);
-    if (!temSimbolo) adicionarUm(simbolos);
+    string restantes = disponiveis;
+    shuffle(restantes.begin(), restantes.end(), gerador);
+    for (char c : restantes) {
+        if (resultado.size() >= config.tamanho) break;
+        adicionarSePossivel(c);
+    }
+    // No modo numerico e tamanho >10, repeticoes sao inevitaveis.
+    // Evita, sempre que possivel, 3 caracteres iguais consecutivos.
+    uniform_int_distribution<size_t> escolher(0, disponiveis.size() - 1);
+    while (resultado.size() < config.tamanho) {
+        char c = disponiveis[escolher(gerador)];
+        size_t n = resultado.size();
+        if (n >= 2 && resultado[n-1] == c && resultado[n-2] == c) continue;
+        resultado.push_back(c);
+    }
+    // Senhas totalmente novas nao precisam preservar nenhuma ordem.
+    if (!preservar) shuffle(resultado.begin(), resultado.end(), gerador);
+    return resultado;
+}
 
-    // Garante comprimento minimo de 12 caracteres.
-    const string todos = minusculas + maiusculas + numeros + simbolos;
+string sugerirSenha(const string& senha, int pontuacao,
+                    const Configuracao& config) {
+    if (pontuacao >= 5) return senha;
     random_device rd;
     mt19937 gerador(rd());
-    string restantes;
-
-    for (char c : todos) {
-        if (utilizados.find(c) == utilizados.end()) {
-            restantes += c;
+    bool preservar = pontuacao >= 2;
+    string melhor;
+    int melhorNota = -1;
+    for (int i = 0; i < 80; ++i) {
+        string candidata = gerarCandidata(senha, preservar && i < 40,
+                                         config, gerador);
+        int nota = avaliarSenha(candidata, false);
+        if (nota > melhorNota) {
+            melhor = candidata;
+            melhorNota = nota;
         }
+        if (melhorNota == 5) break;
     }
-
-    shuffle(restantes.begin(), restantes.end(), gerador);
-
-    while (novaSenha.size() < 12 && !restantes.empty()) {
-        char c = restantes.back();
-        restantes.pop_back();
-        if (utilizados.insert(c).second) {
-            novaSenha += c;
-        }
-    }
-
-    return novaSenha;
+    return melhor;
 }

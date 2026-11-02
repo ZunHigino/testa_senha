@@ -3,17 +3,14 @@
 #include <array>
 #include <string>
 #include <chrono>
+#include <cctype>
 #include "avaliar_senha.h"
 
 using namespace std;
 using namespace chrono;
 
-// Matriz bivetorial:
-// coluna 0 = nome do modelo
-// coluna 1 = candidato ficticio
 using Modelo = array<string, 2>;
-
-vector<Modelo> matrizSenhas = {
+const vector<Modelo> matrizSenhas = {
     {"Sequencia numerica", "1234"},
     {"Digitos repetidos", "000000"},
     {"Sequencia alfabetica", "abc"},
@@ -27,7 +24,6 @@ vector<Modelo> matrizSenhas = {
     {"Sequencia ao contrario", "654321"}
 };
 
-// Consulta a matriz de modelos conhecidos.
 bool consultarMatriz(const string& senha, string& nomeModelo) {
     for (const auto& modelo : matrizSenhas) {
         if (modelo[1] == senha) {
@@ -38,145 +34,173 @@ bool consultarMatriz(const string& senha, string& nomeModelo) {
     return false;
 }
 
-// Busca didatica em um espaco pequeno e controlado.
-bool gerarCombinacoes(
-    const string& caracteres,
-    const string& alvo,
-    string& tentativa,
-    int tamanhoMaximo,
-    unsigned long long& tentativas
-) {
+// Busca exaustiva apenas para demonstracao, num espaco pequeno.
+bool gerarCombinacoes(const string& caracteres, const string& alvo,
+                     string& tentativa, int tamanhoMaximo,
+                     unsigned long long& tentativas) {
     if (!tentativa.empty()) {
         ++tentativas;
-        if (tentativa == alvo) {
-            return true;
-        }
+        if (tentativa == alvo) return true;
     }
-
-    if (tentativa.size() >= static_cast<size_t>(tamanhoMaximo)) {
-        return false;
-    }
-
+    if (tentativa.size() >= static_cast<size_t>(tamanhoMaximo)) return false;
     for (char caractere : caracteres) {
         tentativa.push_back(caractere);
-
-        if (gerarCombinacoes(
-                caracteres, alvo, tentativa,
-                tamanhoMaximo, tentativas)) {
-            return true;
-        }
-
+        if (gerarCombinacoes(caracteres, alvo, tentativa,
+                            tamanhoMaximo, tentativas)) return true;
         tentativa.pop_back();
     }
-
     return false;
 }
 
-int main() {
-    string senhaTeste;
-    const string caracteres = "abcdefghijklmnopqrstuvwxyz0123456789.";
-    const int tamanhoMaximo = 6;
-
-    cout << "==============================\n";
-    cout << "          TESTASENHA\n";
-    cout << "==============================\n";
-    cout << "Digite uma senha ficticia para testar: ";
-    getline(cin, senhaTeste);
-
-    if (senhaTeste.empty()) {
-        cout << "\nErro: a senha nao pode estar vazia.\n";
-        return 1;
+// Entrada numerica segura; retorna falso no fim da entrada.
+bool lerOpcao(const string& mensagem, int minimo, int maximo, int& resultado) {
+    string entrada;
+    while (true) {
+        cout << mensagem;
+        if (!getline(cin, entrada)) return false;
+        if (!entrada.empty() && entrada.size() <= 6) {
+            bool apenasDigitos = true;
+            for (unsigned char c : entrada) {
+                if (!isdigit(c)) { apenasDigitos = false; break; }
+            }
+            if (apenasDigitos) {
+                try {
+                    int valor = stoi(entrada);
+                    if (valor >= minimo && valor <= maximo) {
+                        resultado = valor;
+                        return true;
+                    }
+                } catch (...) {}
+            }
+        }
+        cout << "Opcao invalida. Digite um numero entre "
+             << minimo << " e " << maximo << ".\n";
     }
+}
 
+string nomeCategorias(Categorias categoria) {
+    switch (categoria) {
+        case Categorias::LetrasSimbolos: return "Letras e simbolos";
+        case Categorias::Numeros: return "Apenas numeros";
+        case Categorias::Ambos: return "Letras, simbolos e numeros";
+    }
+    return "Desconhecida";
+}
+
+bool configurarSistema(Configuracao& config) {
+    int tamanho = 0;
+    int categoria = 0;
+    cout << "\n-----Configuracoes-----\n";
+    cout << "Tamanho atual: " << config.tamanho << " caracteres\n";
+    cout << "Categorias atuais: " << nomeCategorias(config.categorias) << "\n\n";
+    if (!lerOpcao("Novo tamanho de senha (4 a 128): ", 4, 128, tamanho)) return false;
+    cout << "\n1 - Apenas letras e simbolos\n"
+         << "2 - Apenas numeros\n"
+         << "3 - Ambos (letras, simbolos e numeros)\n";
+    if (!lerOpcao("Escolha as categorias: ", 1, 3, categoria)) return false;
+    config.tamanho = static_cast<size_t>(tamanho);
+    config.categorias = static_cast<Categorias>(categoria);
+    cout << "\nConfiguracoes salvas para esta execucao.\n";
+    cout << "Tamanho: " << config.tamanho << " | Categorias: "
+         << nomeCategorias(config.categorias) << "\n";
+    return true;
+}
+
+void demonstrarModelos(const string& senha) {
+    const string caracteres = "abcdefghijklmnopqrstuvwxyz0123456789.";
+    const int tamanhoMaximo = 3; // Limite reduzido para nao travar o menu.
     string nomeModelo;
     unsigned long long tentativas = 0;
-
     auto inicio = steady_clock::now();
 
-    cout << "\n=== TESTE DE MODELOS ===\n";
-
-    if (consultarMatriz(senhaTeste, nomeModelo)) {
-        cout << "Modelo encontrado: " << nomeModelo << '\n';
-        cout << "Candidato: " << senhaTeste << '\n';
+    cout << "\n-----Teste de Modelos-----\n";
+    if (consultarMatriz(senha, nomeModelo)) {
+        cout << "Modelo encontrado: " << nomeModelo << "\n";
         cout << "Busca exaustiva nao necessaria.\n";
-    } else if (senhaTeste.size() <= static_cast<size_t>(tamanhoMaximo)) {
-        cout << "Nenhum modelo correspondente.\n";
-        cout << "Iniciando demonstracao exaustiva didatica...\n";
-
+    } else if (senha.size() <= static_cast<size_t>(tamanhoMaximo)) {
         string tentativa;
-        bool encontrada = gerarCombinacoes(
-            caracteres, senhaTeste, tentativa,
-            tamanhoMaximo, tentativas
-        );
+        bool encontrada = gerarCombinacoes(caracteres, senha, tentativa,
+                                          tamanhoMaximo, tentativas);
+        cout << (encontrada ? "Candidato encontrado.\n" :
+                            "Candidato nao encontrado nos modelos.\n");
+        cout << "Tentativas realizadas: " << tentativas << "\n";
+    } else {
+        cout << "Nao consta na matriz. Busca ignorada "
+             << "(limite: " << tamanhoMaximo << " caracteres).\n";
+    }
+    cout << "Tempo: " << duration<double>(steady_clock::now() - inicio).count()
+         << " segundos\n";
+}
 
-        if (encontrada) {
-            cout << "Candidato encontrado: " << tentativa << '\n';
-        } else {
-            cout << "Candidato nao encontrado no conjunto testado.\n";
+void executarAvaliacao(const Configuracao& config, const string& senha) {
+    demonstrarModelos(senha);
+    cout << "\n-----Avaliacao da Senha Original-----\n";
+    int pontuacao = avaliarSenha(senha);
+    cout << "\nConfiguracao da sugestao: " << config.tamanho << " caracteres; "
+         << nomeCategorias(config.categorias) << ".\n";
+    if (pontuacao == 5) {
+        cout << "A senha foi classificada como PODEROSA; nenhuma sugestao necessaria.\n";
+        return;
+    }
+
+    cout << "\n-----Sugestao de Senha-----\n";
+    string sugestao = sugerirSenha(senha, pontuacao, config);
+    cout << "Sugestao: " << sugestao << "\n";
+    cout << "\n-----Avaliacao da Sugestao-----\n";
+    int novaPontuacao = avaliarSenha(sugestao);
+    if (novaPontuacao < 5) {
+        cout << "Observacao: com " << config.tamanho << " caracteres e as categorias "
+             << "escolhidas, pode ser impossivel atingir 5/5. "
+             << "Aumente o tamanho ou permita mais categorias.\n";
+    }
+}
+
+int main() {
+    Configuracao config; // Padrao: 8 caracteres, letras + simbolos + numeros.
+    cout << "------------------------------\n"
+         << "          TestaSenha\n"
+         << "------------------------------\n";
+    cout << "Senhas testadas NAO serao salvas.\n";
+
+    while (true) {
+        cout << "\n-----Menu Principal-----\n"
+             << "1 - Inserir senha teste\n"
+             << "2 - Ajustar configuracoes\n"
+             << "3 - Sair\n"
+             << "Configuracao atual: " << config.tamanho << " caracteres, "
+             << nomeCategorias(config.categorias) << "\n";
+        int opcao = 0;
+        if (!lerOpcao("Escolha uma opcao: ", 1, 3, opcao)) break;
+        if (opcao == 3) break;
+        if (opcao == 2) {
+            if (!configurarSistema(config)) break;
+            continue;
         }
 
-        cout << "Tentativas realizadas: " << tentativas << '\n';
-    } else {
-        cout << "Nenhum modelo correspondente.\n";
-        cout << "Busca didatica ignorada: a senha ultrapassa "
-             << tamanhoMaximo << " caracteres.\n";
+        while (true) {
+            string senha;
+            cout << "\nDigite uma senha para testar: ";
+            if (!getline(cin, senha)) return 0;
+            if (senha.empty()) {
+                cout << "Erro: a senha nao pode estar vazia.\n";
+                continue;
+            }
+            executarAvaliacao(config, senha);
+            int repetir = 0;
+            cout << "\n1 - Sim, testar outra senha\n2 - Nao, encerrar programa\n";
+            if (!lerOpcao("Deseja inserir outra senha teste? ", 1, 2, repetir)) return 0;
+            if (repetir == 2) {
+                cout << "Encerrando TestaSenha.\n";
+                return 0;
+            }
+            // Retorna ao menu principal, em vez de pedir outra senha diretamente.
+            break;
+        }
     }
-
-    auto fim = steady_clock::now();
-    double tempo = duration<double>(fim - inicio).count();
-
-    cout << "Tempo da etapa de modelos: " << tempo << " segundos\n";
-
-    cout << "\n=== AVALIACAO DA SENHA ORIGINAL ===\n";
-    int pontuacao = avaliarSenha(senhaTeste);
-
-    if (pontuacao == 5) {
-        cout << "\nSua senha ja foi classificada como PODEROSA.\n";
-        cout << "Nenhuma sugestao de alteracao e necessaria.\n";
-        return 0;
-    }
-
-    cout << "\n=== SUGESTAO DE SENHA MAIS FORTE ===\n";
-    string sugestao = sugerirSenha(senhaTeste, pontuacao);
-
-    cout << "Sugestao inicial: " << sugestao << "\n";
-
-    cout << "\n=== AVALIACAO DA SUGESTAO ===\n";
-    int novaPontuacao = avaliarSenha(sugestao);
-
-    // Se a sugestao baseada na senha original nao atingir 5,
-    // tenta gerar senhas aleatorias ate encontrar uma aprovada.
-    const int maxTentativasGeracao = 10;
-    int tentativasGeracao = 0;
-
-    while (novaPontuacao < 5 &&
-           tentativasGeracao < maxTentativasGeracao) {
-        ++tentativasGeracao;
-        cout << "\nA sugestao ainda nao atingiu 5/5.\n";
-        cout << "Gerando uma nova senha aleatoria...\n";
-
-        sugestao = sugerirSenha("", 1);
-        novaPontuacao = avaliarSenha(sugestao);
-    }
-
-    cout << "\n==============================\n";
-    cout << "       RESULTADO DA SUGESTAO\n";
-    cout << "==============================\n";
-    cout << "Senha sugerida: " << sugestao << '\n';
-    cout << "Pontuacao obtida: " << novaPontuacao << "/5\n";
-
-    if (novaPontuacao == 5) {
-        cout << "Classificacao: Poderosa\n";
-    } else {
-        cout << "Nao foi possivel confirmar uma sugestao 5/5 "
-             << "nesta execucao.\n";
-    }
-
-    cout << "\nUse apenas senhas ficticias durante os testes.\n";
+    cout << "Encerrando TestaSenha.\n";
     return 0;
 }
 
-// Compilacao:
-// g++ -std=c++17 main.cpp avaliar_senha.cpp -o TestaSenha.exe
-// Execucao no PowerShell:
-// .\\TestaSenha.exe
+// g++ -std=c++17 main.cpp avaliar_senha.cpp -o TestaSenha.exe -> cria um .exe
+// .\TestaSenha.exe -> executa o executável
+ 
