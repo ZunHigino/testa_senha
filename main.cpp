@@ -17,7 +17,6 @@ const vector<Modelo> matrizSenhas = {
     {"Padrao alternado", "121"},
     {"Exemplo alfanumerico", "a1b"},
     {"Sequencia fraca", "12345678"},
-    {"Senha do notebook", "020699"},
     {"Senha: senha", "senha"},
     {"Repeticao", "123123"},
     {"Senha: senha (ingles)", "password"},
