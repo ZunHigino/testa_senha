@@ -1,16 +1,16 @@
-#include <iostream>
-#include <vector>
-#include <array>
-#include <string>
-#include <chrono>
-#include <cctype>
-#include "avaliar_senha.h"
+#include <iostream> //Exibe mensagens e recebe dados pelo terminal
+#include <vector>   //Armazena vários conjuntos
+#include <array>    //Organiza os dados em array
+#include <string>   //Manipula strings
+#include <chrono>   //Mede o tempo de execução
+#include <cctype>   //Verifica os tipos de caracteres
+#include "avaliar_senha.h"  // Acessa as funções e configurações do sistema
 
-using namespace std;
-using namespace chrono;
+using namespace std;    //Evita escrever std:: em alguns elementos
+using namespace chrono; 
 
-using Modelo = array<string, 2>;
-const vector<Modelo> matrizSenhas = {
+using Modelo = array<string, 2>;        //Conjunto de duas strings
+const vector<Modelo> matrizSenhas = {   //Armazena os conjuntos
     {"Sequencia numerica", "1234"},
     {"Digitos repetidos", "000000"},
     {"Sequencia alfabetica", "abc"},
@@ -23,18 +23,18 @@ const vector<Modelo> matrizSenhas = {
     {"Sequencia ao contrario", "654321"}
 };
 
-bool consultarMatriz(const string& senha, string& nomeModelo) {
+bool consultarMatriz(const string& senha, string& nomeModelo) { //Consulta a tabela de modelos
     for (const auto& modelo : matrizSenhas) {
-        if (modelo[1] == senha) {
-            nomeModelo = modelo[0];
-            return true;
+        if (modelo[1] == senha) {   //Compara a senha fornecida com todas as senhas do modelo
+            nomeModelo = modelo[0]; //Guarda o nome do modelo em uma variável caso encontre
+            return true;            //Encontrou
         }
     }
-    return false;
+    return false;   //Não encontrou
 }
 
-// Busca exaustiva apenas para demonstracao, num espaco pequeno.
-bool gerarCombinacoes(const string& caracteres, const string& alvo,
+// Busca exaustiva apenas para demonstração, num espaco pequeno.
+bool gerarCombinacoes(const string& caracteres, const string& alvo, 
                      string& tentativa, int tamanhoMaximo,
                      unsigned long long& tentativas) {
     if (!tentativa.empty()) {
@@ -42,18 +42,18 @@ bool gerarCombinacoes(const string& caracteres, const string& alvo,
         if (tentativa == alvo) return true;
     }
     if (tentativa.size() >= static_cast<size_t>(tamanhoMaximo)) return false;
-    for (char caractere : caracteres) {
-        tentativa.push_back(caractere);
+    for (char caractere : caracteres) { 
+        tentativa.push_back(caractere);     // Adiciona um caractere na tentativa
         if (gerarCombinacoes(caracteres, alvo, tentativa,
-                            tamanhoMaximo, tentativas)) return true;
-        tentativa.pop_back();
+                            tamanhoMaximo, tentativas)) return true;   //Função para se encontrar o caractere certo
+        tentativa.pop_back();   //Se não, a função tira o caractere e repete
     }
     return false;
 }
 
-// Entrada numerica segura; retorna falso no fim da entrada.
+// Entrada numérica; retorna falso no fim da entrada.
 bool lerOpcao(const string& mensagem, int minimo, int maximo, int& resultado) {
-    string entrada;
+    string entrada;         //Função de escolhas do menu em dígitos numéricos
     while (true) {
         cout << mensagem;
         if (!getline(cin, entrada)) return false;
@@ -64,12 +64,12 @@ bool lerOpcao(const string& mensagem, int minimo, int maximo, int& resultado) {
             }
             if (apenasDigitos) {
                 try {
-                    int valor = stoi(entrada);
+                    int valor = stoi(entrada); //Transforma a string em int
                     if (valor >= minimo && valor <= maximo) {
                         resultado = valor;
                         return true;
                     }
-                } catch (...) {}
+                } catch (...) {}    // Try e Except do Python
             }
         }
         cout << "Opcao invalida. Digite um numero entre "
@@ -77,8 +77,8 @@ bool lerOpcao(const string& mensagem, int minimo, int maximo, int& resultado) {
     }
 }
 
-string nomeCategorias(Categorias categoria) {
-    switch (categoria) {
+string nomeCategorias(Categorias categoria) {   //Analisa a categoria recebida
+    switch (categoria) {    //Switch Case nos Enums (veja avaliar_senha.cpp)
         case Categorias::LetrasSimbolos: return "Letras e simbolos";
         case Categorias::Numeros: return "Apenas numeros";
         case Categorias::Ambos: return "Letras, simbolos e numeros";
